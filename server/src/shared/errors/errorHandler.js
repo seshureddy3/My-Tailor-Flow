@@ -1,6 +1,10 @@
 import { logger } from "../logger/logger.js";
 
 export const errorHandler = (err, req, res, next) => {
+  if (res && res.headersSent) {
+    return next(err);
+  }
+
   const isProduction = process.env.NODE_ENV === "production";
   const request = req || {};
   const error = err || {};

@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import bcrypt from "bcryptjs";
+import argon2 from "argon2";
 
 const UserSchema = new Schema(
   {
@@ -22,6 +22,7 @@ const UserSchema = new Schema(
     password: {
       type: String,
       required: true,
+      select: false,
     },
     role: {
       type: String,
@@ -35,11 +36,15 @@ const UserSchema = new Schema(
 UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await argon2.hash(this.password);
 });
 
 UserSchema.methods.comparePassword = async function (userPassword) {
-  return bcrypt.compare(userPassword, this.password);
+  if (!this.password) {
+    return false;
+  }
+
+  return argon2.verify(this.password, userPassword);
 };
 
 export const User = model("User", UserSchema);
