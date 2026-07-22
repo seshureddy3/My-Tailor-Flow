@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 
 import { errorHandler } from "../shared/errors/errorHandler.js";
 import globalRouter from "./app.route.js";
@@ -14,6 +15,7 @@ app.set("trust proxy", 1);
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
+app.use(cookieParser());
 
 // rateLimiter
 app.use(globalRateLimiter);

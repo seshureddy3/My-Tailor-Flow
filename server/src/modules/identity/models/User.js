@@ -29,6 +29,7 @@ const UserSchema = new Schema(
       enum: ["tailor", "customer"],
       default: "customer",
     },
+    passwordChangedAt: { type: Date },
   },
   { timestamps: true },
 );
@@ -37,6 +38,10 @@ UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
   this.password = await argon2.hash(this.password);
+
+  if (!this.isNew) {
+    this.set({ passwordChangedAt: new Date(Date.now() - 1000) });
+  }
 });
 
 UserSchema.methods.comparePassword = async function (userPassword) {

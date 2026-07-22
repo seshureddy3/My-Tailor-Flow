@@ -6,6 +6,7 @@ import { generateToken } from "../services/generateToken.js";
 import { logger } from "../../../shared/logger/logger.js";
 import { updateUser } from "../services/updateUser.js";
 import { isValid } from "../../../shared/database/databaseHelper.js";
+import { passwordChange } from "../services/passwordChange.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
   const newUser = await createUser(req.body);
@@ -77,28 +78,13 @@ export const editUser = asyncHandler(async (req, res) => {
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { oldPassword, newPassword } = req.body;
+  await passwordChange(req.user.id, req.body);
 
-  isValid(userId);
-
-  const user = await User.findById(userId).select("+password");
-
-  if (!user) {
-    const error = new Error("User not found!");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  const isMatch = await user.comparePassword(oldPassword);
-  if (!isMatch) {
-    const error = new Error("Old password does not match");
-    error.statusCode = 401;
-    throw error;
-  }
-
-  user.password = newPassword;
-  await user.save();
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
 
   return res.status(200).json({
     success: true,
@@ -157,5 +143,53 @@ export const rotateRefreshToken = asyncHandler(async (req, res) => {
     success: true,
     accessToken: newAccessToken,
     refreshToken: newRefreshToken,
+  });
+});
+
+export const logoutUser = asyncHandler(async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken ?? req.body?.refreshToken;
+
+  if (!refreshToken) {
+    const error = new Error("Refresh token missing");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingTokenDoc = await RefreshToken.findOne({ token: refreshToken });
+
+  if (!existingTokenDoc) {
+    const error = new Error("Invalid refresh Token");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  if (existingTokenDoc.used) {
+    logger.error(
+      `CRITICAL: Replay attempt during logout for user ${existingTokenDoc.user}`,
+    );
+
+    await RefreshToken.deleteMany({ user: existingTokenDoc.user });
+
+    const error = new Error(
+      "Security alert: Token abuse detected. All sessions revoked.",
+    );
+    error.statusCode = 401;
+    throw error;
+  }
+
+  existingTokenDoc.used = true;
+  await existingTokenDoc.save();
+
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+  });
+
+  logger.info(`User ${existingTokenDoc.user} logged out successfully.`);
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully!",
   });
 });

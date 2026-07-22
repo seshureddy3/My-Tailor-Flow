@@ -48,3 +48,13 @@ export const handleEditUser = (data) => {
 
   return schema.validate(data, { abortEarly: true, stripUnknown: true });
 };
+
+export const handlePasswords = (data) => {
+  const schema = Joi.object({
+    oldPassword: Joi.string().required(),
+    newPassword: Joi.string().required(),
+    refreshToken: Joi.string().required(),
+  });
+
+  return schema.validate(data, { abortEarly: true });
+};

@@ -4,11 +4,14 @@ import { logger } from "../logger/logger.js";
 import { asyncHandler } from "../asyncHandler.js";
 import { User } from "../../modules/identity/models/User.js";
 
-export const authenticateUser = asyncHandler(async (req, resizeBy, next) => {
+export const authenticateUser = asyncHandler(async (req, res, next) => {
   const { JWT_SECRET } = process.env;
 
   if (!JWT_SECRET) {
     logger.error("CRITICAL: JWT_SECRET environment variable is missing.");
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 
   const authHeader = req.headers["authorization"];
@@ -25,9 +28,8 @@ export const authenticateUser = asyncHandler(async (req, resizeBy, next) => {
   try {
     const decodeToken = await jwt.verify(token, JWT_SECRET);
 
-    const currentUser = await User.findById(
-      decodeToken._id || decodeToken.id,
-    ).select("-password");
+    const currentUser = await User.findById(decodeToken._id || decodeToken.id);
+
     if (!currentUser) {
       return res.status(401).json({
         success: false,
@@ -35,7 +37,27 @@ export const authenticateUser = asyncHandler(async (req, resizeBy, next) => {
       });
     }
 
-    req.user = currentUser;
+    if (currentUser.passwordChangedAt) {
+      const changedTimestamp = parseInt(
+        currentUser.passwordChangedAt.getTime() / 1000,
+        10,
+      );
+
+      if (decodeToken.iat < changedTimestamp) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Unauthorized: Password recently changed. Please log in again.",
+        });
+      }
+    }
+
+    const userObj = currentUser.toObject();
+    delete userObj.password;
+
+    console.log(currentUser);
+
+    req.user = userObj;
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError") {
