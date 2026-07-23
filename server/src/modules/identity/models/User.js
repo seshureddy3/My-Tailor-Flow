@@ -26,7 +26,7 @@ const UserSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["tailor", "customer"],
+      enum: ["tailor", "customer", "admin"],
       default: "customer",
     },
     passwordChangedAt: { type: Date },

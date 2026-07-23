@@ -3,8 +3,6 @@ import { RefreshToken } from "../models/RefreshToken.js";
 import { isValid } from "../../../shared/database/databaseHelper.js";
 
 export const passwordChange = async (userId, userData) => {
-  console.log(userId);
-
   isValid(userId);
   if (
     !userData ||

@@ -55,8 +55,6 @@ export const authenticateUser = asyncHandler(async (req, res, next) => {
     const userObj = currentUser.toObject();
     delete userObj.password;
 
-    console.log(currentUser);
-
     req.user = userObj;
     next();
   } catch (err) {
@@ -73,3 +71,19 @@ export const authenticateUser = asyncHandler(async (req, res, next) => {
     });
   }
 });
+
+export const whoAreYou = (...roles) => {
+  const allowedRoles = new Set(roles.map((role) => role.toLowerCase()));
+
+  return (req, res, next) => {
+    const userRole = req.user?.role?.toLowerCase();
+
+    if (!userRole || !allowedRoles.has(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: You do not have permission to perform this action",
+      });
+    }
+    next();
+  };
+};
